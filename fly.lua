@@ -1,21 +1,21 @@
--- Services
+-- Safe Character Load
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 
--- Variables
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
 local cam = workspace.CurrentCamera
 
+-- Fly Settings
 local flying = false
 _G.FlySpeed = _G.FlySpeed or 50
 local moveVector = Vector3.zero
 
--- Physics Bodies
+-- Physics Objects
 local bodyGyro = Instance.new("BodyGyro")
 bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
 bodyGyro.P = 9e4
@@ -23,7 +23,7 @@ bodyGyro.P = 9e4
 local bodyVelocity = Instance.new("BodyVelocity")
 bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
 
--- Movement Input (PC)
+-- Movement Control (PC)
 local function moveAction(_, inputState, inputObj)
 	if inputState == Enum.UserInputState.Begin then
 		if inputObj.KeyCode == Enum.KeyCode.W or inputObj.KeyCode == Enum.KeyCode.Up then
@@ -49,7 +49,7 @@ ContextActionService:BindAction("FlyMovement", moveAction, false,
 	Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D,
 	Enum.KeyCode.Up, Enum.KeyCode.Down, Enum.KeyCode.Left, Enum.KeyCode.Right)
 
--- Mobile Support
+-- Mobile Joystick Support
 if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
 	RunService.RenderStepped:Connect(function()
 		local moveDir = humanoid.MoveDirection
@@ -59,36 +59,43 @@ if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
 	end)
 end
 
--- Pause & Resume
+-- Pause/Resume Movement
 local function pauseAnimation()
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	pcall(function()
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	end)
 end
 
 local function resumeAnimation()
-	humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+	pcall(function()
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+	end)
 end
 
--- Toggle Fly Function
+-- Toggle Fly Mode
 local function toggleFly()
 	flying = not flying
+
 	if flying then
 		bodyGyro.Parent = hrp
 		bodyVelocity.Parent = hrp
-		humanoid.PlatformStand = true
 		pauseAnimation()
+		humanoid.PlatformStand = true
 	else
 		bodyGyro.Parent = nil
 		bodyVelocity.Parent = nil
-		humanoid.PlatformStand = false
 		resumeAnimation()
+		humanoid.PlatformStand = false
 	end
 end
 
 -- Fly Loop
 RunService.Heartbeat:Connect(function()
 	if not flying then
-		bodyGyro.CFrame = hrp.CFrame
-		bodyVelocity.Velocity = Vector3.zero
+		if bodyGyro.Parent then
+			bodyGyro.CFrame = hrp.CFrame
+			bodyVelocity.Velocity = Vector3.zero
+		end
 		return
 	end
 
@@ -107,5 +114,5 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- 👇 This is REQUIRED for the UI toggle to work!
+-- This MUST be here for Rayfield UI to work
 return toggleFly
