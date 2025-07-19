@@ -1,21 +1,22 @@
--- Safe Character Load
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 
+-- Player & character
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
 local cam = workspace.CurrentCamera
 
--- Fly Settings
+-- Flying state
 local flying = false
 _G.FlySpeed = _G.FlySpeed or 50
 local moveVector = Vector3.zero
 
--- Physics Objects
+-- Physics
 local bodyGyro = Instance.new("BodyGyro")
 bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
 bodyGyro.P = 9e4
@@ -23,7 +24,20 @@ bodyGyro.P = 9e4
 local bodyVelocity = Instance.new("BodyVelocity")
 bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
 
--- Movement Control (PC)
+-- Animation control
+local function pauseAnimation()
+	pcall(function()
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	end)
+end
+
+local function resumeAnimation()
+	pcall(function()
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+	end)
+end
+
+-- Movement input (PC)
 local function moveAction(_, inputState, inputObj)
 	if inputState == Enum.UserInputState.Begin then
 		if inputObj.KeyCode == Enum.KeyCode.W or inputObj.KeyCode == Enum.KeyCode.Up then
@@ -49,30 +63,22 @@ ContextActionService:BindAction("FlyMovement", moveAction, false,
 	Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D,
 	Enum.KeyCode.Up, Enum.KeyCode.Down, Enum.KeyCode.Left, Enum.KeyCode.Right)
 
--- Mobile Joystick Support
+-- Mobile support: update direction based on MoveDirection or camera
 if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
 	RunService.RenderStepped:Connect(function()
-		local moveDir = humanoid.MoveDirection
 		if flying then
-			moveVector = Vector3.new(moveDir.X, 0, moveDir.Z)
+			local moveDir = humanoid.MoveDirection
+			if moveDir.Magnitude > 0.1 then
+				moveVector = Vector3.new(moveDir.X, 0, moveDir.Z)
+			else
+				local camLook = cam.CFrame.LookVector
+				moveVector = Vector3.new(camLook.X, 0, camLook.Z).Unit
+			end
 		end
 	end)
 end
 
--- Pause/Resume Movement
-local function pauseAnimation()
-	pcall(function()
-		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-	end)
-end
-
-local function resumeAnimation()
-	pcall(function()
-		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-	end)
-end
-
--- Toggle Fly Mode
+-- Toggle fly mode
 local function toggleFly()
 	flying = not flying
 
@@ -89,7 +95,7 @@ local function toggleFly()
 	end
 end
 
--- Fly Loop
+-- Heartbeat movement loop
 RunService.Heartbeat:Connect(function()
 	if not flying then
 		if bodyGyro.Parent then
@@ -114,5 +120,5 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- This MUST be here for Rayfield UI to work
+-- Return toggle function for Rayfield UI
 return toggleFly
