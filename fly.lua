@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -13,7 +12,6 @@ local cam = workspace.CurrentCamera
 local flying = false
 _G.FlySpeed = _G.FlySpeed or 50
 local moveVector = Vector3.zero
-local cameraFlipped = false
 
 local bodyGyro = Instance.new("BodyGyro")
 bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
@@ -61,11 +59,10 @@ if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
 		if flying then
 			local camCF = cam.CFrame
 			local lookVector = camCF.LookVector
-			local rightVector = camCF.RightVector
+
 			local moveDir = humanoid.MoveDirection
-			if moveDir.Magnitude > 0.1 then
-				local camRelativeMove = (rightVector * moveDir.X + lookVector * moveDir.Z)
-				moveVector = Vector3.new(camRelativeMove.X, 0, camRelativeMove.Z).Unit
+			if moveDir.Magnitude > 0.1 and moveDir.Z > 0 then
+				moveVector = Vector3.new(0, 0, 1)
 			else
 				moveVector = Vector3.zero
 			end
