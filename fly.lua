@@ -9,7 +9,7 @@ local hrp = character:WaitForChild("HumanoidRootPart")
 local cam = workspace.CurrentCamera
 
 local flying = false
-local speed = 50
+_G.FlySpeed = 50  -- global variable for speed, modifiable from outside
 local moveVector = Vector3.new(0, 0, 0)
 
 local bodyGyro = Instance.new("BodyGyro")
@@ -89,7 +89,7 @@ RunService.Heartbeat:Connect(function()
     local direction = (forward * moveVector.Z) + (right * moveVector.X)
 
     if direction.Magnitude > 0 then
-        direction = direction.Unit * speed
+        direction = direction.Unit * _G.FlySpeed
         local newCFrame = CFrame.new(hrp.Position, hrp.Position + direction)
         bodyGyro.CFrame = newCFrame
         bodyVelocity.Velocity = direction
@@ -98,3 +98,5 @@ RunService.Heartbeat:Connect(function()
         bodyVelocity.Velocity = Vector3.new(0,0,0)
     end
 end)
+
+return toggleFly
