@@ -1,9 +1,10 @@
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
-local StarterGui = game:GetService("StarterGui")
 
+-- Variables
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
@@ -11,10 +12,10 @@ local hrp = character:WaitForChild("HumanoidRootPart")
 local cam = workspace.CurrentCamera
 
 local flying = false
-_G.FlySpeed = 50  -- global speed variable
+_G.FlySpeed = _G.FlySpeed or 50
+local moveVector = Vector3.zero
 
-local moveVector = Vector3.new(0, 0, 0)
-
+-- Physics Bodies
 local bodyGyro = Instance.new("BodyGyro")
 bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
 bodyGyro.P = 9e4
@@ -22,108 +23,89 @@ bodyGyro.P = 9e4
 local bodyVelocity = Instance.new("BodyVelocity")
 bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
 
+-- Movement Input (PC)
+local function moveAction(_, inputState, inputObj)
+	if inputState == Enum.UserInputState.Begin then
+		if inputObj.KeyCode == Enum.KeyCode.W or inputObj.KeyCode == Enum.KeyCode.Up then
+			moveVector = Vector3.new(moveVector.X, 0, 1)
+		elseif inputObj.KeyCode == Enum.KeyCode.S or inputObj.KeyCode == Enum.KeyCode.Down then
+			moveVector = Vector3.new(moveVector.X, 0, -1)
+		elseif inputObj.KeyCode == Enum.KeyCode.A or inputObj.KeyCode == Enum.KeyCode.Left then
+			moveVector = Vector3.new(-1, 0, moveVector.Z)
+		elseif inputObj.KeyCode == Enum.KeyCode.D or inputObj.KeyCode == Enum.KeyCode.Right then
+			moveVector = Vector3.new(1, 0, moveVector.Z)
+		end
+	elseif inputState == Enum.UserInputState.End then
+		if inputObj.KeyCode == Enum.KeyCode.W or inputObj.KeyCode == Enum.KeyCode.S or inputObj.KeyCode == Enum.KeyCode.Up or inputObj.KeyCode == Enum.KeyCode.Down then
+			moveVector = Vector3.new(moveVector.X, 0, 0)
+		elseif inputObj.KeyCode == Enum.KeyCode.A or inputObj.KeyCode == Enum.KeyCode.D or inputObj.KeyCode == Enum.KeyCode.Left or inputObj.KeyCode == Enum.KeyCode.Right then
+			moveVector = Vector3.new(0, 0, moveVector.Z)
+		end
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+ContextActionService:BindAction("FlyMovement", moveAction, false,
+	Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D,
+	Enum.KeyCode.Up, Enum.KeyCode.Down, Enum.KeyCode.Left, Enum.KeyCode.Right)
+
+-- Mobile Support
+if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+	RunService.RenderStepped:Connect(function()
+		local moveDir = humanoid.MoveDirection
+		if flying then
+			moveVector = Vector3.new(moveDir.X, 0, moveDir.Z)
+		end
+	end)
+end
+
+-- Pause & Resume
 local function pauseAnimation()
-    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 end
 
 local function resumeAnimation()
-    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+	humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
 end
 
-local function moveAction(actionName, inputState, inputObject)
-    if inputState == Enum.UserInputState.Begin then
-        if actionName == "MoveForward" then
-            moveVector = Vector3.new(moveVector.X, 0, 1)
-        elseif actionName == "MoveBackward" then
-            moveVector = Vector3.new(moveVector.X, 0, -1)
-        elseif actionName == "MoveLeft" then
-            moveVector = Vector3.new(-1, 0, moveVector.Z)
-        elseif actionName == "MoveRight" then
-            moveVector = Vector3.new(1, 0, moveVector.Z)
-        end
-    elseif inputState == Enum.UserInputState.End then
-        if actionName == "MoveForward" or actionName == "MoveBackward" then
-            moveVector = Vector3.new(moveVector.X, 0, 0)
-        elseif actionName == "MoveLeft" or actionName == "MoveRight" then
-            moveVector = Vector3.new(0, 0, moveVector.Z)
-        end
-    end
-    return Enum.ContextActionResult.Sink
-end
-
--- Bind keyboard controls (PC)
-ContextActionService:BindAction("MoveForward", moveAction, false, Enum.KeyCode.W, Enum.KeyCode.Up)
-ContextActionService:BindAction("MoveBackward", moveAction, false, Enum.KeyCode.S, Enum.KeyCode.Down)
-ContextActionService:BindAction("MoveLeft", moveAction, false, Enum.KeyCode.A, Enum.KeyCode.Left)
-ContextActionService:BindAction("MoveRight", moveAction, false, Enum.KeyCode.D, Enum.KeyCode.Right)
-
+-- Toggle Fly Function
 local function toggleFly()
-    flying = not flying
-    if flying then
-        bodyGyro.Parent = hrp
-        bodyVelocity.Parent = hrp
-        pauseAnimation()
-        humanoid.PlatformStand = true
-    else
-        bodyGyro.Parent = nil
-        bodyVelocity.Parent = nil
-        resumeAnimation()
-        humanoid.PlatformStand = false
-    end
+	flying = not flying
+	if flying then
+		bodyGyro.Parent = hrp
+		bodyVelocity.Parent = hrp
+		humanoid.PlatformStand = true
+		pauseAnimation()
+	else
+		bodyGyro.Parent = nil
+		bodyVelocity.Parent = nil
+		humanoid.PlatformStand = false
+		resumeAnimation()
+	end
 end
 
--- Bind toggle fly key for PC
-ContextActionService:BindAction("ToggleFly", function(_, inputState)
-    if inputState == Enum.UserInputState.Begin then
-        toggleFly()
-    end
-    return Enum.ContextActionResult.Sink
-end, false, Enum.KeyCode.F)
-
--- Create simple mobile fly toggle button
-if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
-    local flyButton = Instance.new("TextButton")
-    flyButton.Text = "Fly"
-    flyButton.Size = UDim2.new(0, 100, 0, 50)
-    flyButton.Position = UDim2.new(1, -110, 1, -60)
-    flyButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-    flyButton.TextColor3 = Color3.new(1, 1, 1)
-    flyButton.Parent = player:WaitForChild("PlayerGui")
-
-    flyButton.MouseButton1Click:Connect(toggleFly)
-end
-
+-- Fly Loop
 RunService.Heartbeat:Connect(function()
-    if not flying then
-        bodyGyro.CFrame = hrp.CFrame
-        bodyVelocity.Velocity = Vector3.new(0,0,0)
-        return
-    end
+	if not flying then
+		bodyGyro.CFrame = hrp.CFrame
+		bodyVelocity.Velocity = Vector3.zero
+		return
+	end
 
-    local moveInput = moveVector
+	local camCF = cam.CFrame
+	local forward = camCF.LookVector
+	local right = camCF.RightVector
 
-    -- Use joystick input on mobile if flying
-    if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
-        moveInput = Vector3.new(
-            humanoid.MoveDirection.X,
-            0,
-            humanoid.MoveDirection.Z
-        )
-    end
-
-    local cameraCFrame = cam.CFrame
-    local forward = cameraCFrame.LookVector
-    local right = cameraCFrame.RightVector
-
-    local direction = (forward * moveInput.Z) + (right * moveInput.X)
-
-    if direction.Magnitude > 0 then
-        direction = direction.Unit * _G.FlySpeed
-        local newCFrame = CFrame.new(hrp.Position, hrp.Position + direction)
-        bodyGyro.CFrame = newCFrame
-        bodyVelocity.Velocity = direction
-    else
-        bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + forward)
-        bodyVelocity.Velocity = Vector3.new(0,0,0)
-    end
+	local direction = (forward * moveVector.Z) + (right * moveVector.X)
+	if direction.Magnitude > 0 then
+		direction = direction.Unit * (_G.FlySpeed or 50)
+		bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + direction)
+		bodyVelocity.Velocity = direction
+	else
+		bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + forward)
+		bodyVelocity.Velocity = Vector3.zero
+	end
 end)
+
+-- 👇 This is REQUIRED for the UI toggle to work!
+return toggleFly
